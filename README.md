@@ -24,6 +24,23 @@ These exports allow any app using the SDK to interact with internal wallet flows
 
 ---
 
+## ▶️ Exact Commands to Reproduce
+
+From a clean environment:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/<your-username>/<repo-name>.git
+cd <repo-name>
+
+# 2. Install dependencies
+npm install
+
+# 3. Run the Proof of Concept
+node poc-exposed-api.js
+
+---
+
 ## 📂 Notes
 
 - PoC experiments are included in `poc-exposed-api.js`.  
