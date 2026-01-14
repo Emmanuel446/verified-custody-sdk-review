@@ -1,55 +1,31 @@
-# Verified Custody SDK Security Review
+# 🛑 Main Issue — SDK exposes internal components and cryptographic primitives
 
-This repository demonstrates a Proof of Concept (PoC) highlighting security issues found in the `@verified-network/verified-custody` package.  
-
----
-
-## 🛑 Main Issue 1 — Custody SDK exposes internal security‑critical components
-
-The `@verified-network/verified-custody` package **publicly exports internal UI pages, vault context, and security flows** that should **never** be part of a custody SDK’s public API.
+The `@verified-network/verified-custody` package publicly exposes **internal UI pages** and **low-level cryptographic helpers** that should never be part of a custody SDK’s public API. This creates a **critical security risk**, as both the wallet’s user interface flows and cryptographic operations can be misused by any consuming app.
 
 ### 🔍 Proof (Observed)
+From running the PoC and inspecting the SDK, the following are publicly exported:
 
-The SDK exposes:
+- **Internal UI pages / flows**:  
+  `CreatePinPage`, `EnterPinPage`, `OTPPage`, `FTUPage`
+- **Vault context**: `VaultContextProvider`
+- **Cryptographic helpers**:  
+  `encryptString`, `decryptString`, `encryptWithPasskey`, `decryptWithPasskey`, `hashTheString`, `hashTheBuffer`, `publicKeyCredentialRequestOptions`
 
-- PIN & OTP pages: `CreatePinPage`, `EnterPinPage`, `OTPPage`
-- Onboarding flows: `FTUPage`
-- `VaultContextProvider`
+These exports allow any app using the SDK to interact with internal wallet flows and perform cryptographic operations outside the intended custody lifecycle.
 
-### ⚠️ Why this is bad
+### ⚠️ Why this is a serious issue
+- **Breaks trust boundaries** between SDK consumers and wallet internals  
+- **Enables unintended mounting or reuse of PIN, OTP, and vault flows**, potentially bypassing security assumptions  
+- **Cryptographic functions are callable without custody flow enforcement**, increasing risk of key misuse or leakage  
+- **Expands the attack surface**, putting sensitive wallet data, key handling, and vault state at risk  
 
-- Breaks trust boundaries between SDK consumer and wallet internals  
-- Allows unintended mounting or reuse of security flows  
-- Expands attack surface around PIN, OTP, and vault state handling
-
-**Severity:** High — This is a **security design flaw**.
-
----
-
-## 🛑 Main Issue 2 — Unrestricted access to cryptographic primitives
-
-The SDK exposes **low-level cryptographic helpers** directly, without enforcing custody flow, authorization, or environment constraints.
-
-### 🔍 Proof
-
-Public exports include:
-
-- `encryptString`, `decryptString`  
-- `encryptWithPasskey`, `decryptWithPasskey`  
-- `hashTheString`, `hashTheBuffer`  
-- `publicKeyCredentialRequestOptions`
-
-### ⚠️ Why this is bad
-
-- Any app can misuse encryption/decryption helpers  
-- Cryptographic operations are callable outside intended wallet lifecycle  
-- Violates principle of least privilege for custody systems
-
-**Severity:** High — Directly affects key handling assumptions.
+**Severity:** High — This is a **critical security design flaw** affecting both custody flow and key management.  
+**Impact:** Exploiting this could allow an attacker to misuse encryption, intercept or manipulate sensitive flows, or compromise the integrity of key management within the wallet.
 
 ---
 
 ## 📂 Notes
 
 - PoC experiments are included in `poc-exposed-api.js`.  
-- `node_modules` is ignored in this repo to keep the submission lightweight.
+- `node_modules` is ignored to keep the submission lightweight.  
+- This review demonstrates **real, actionable vulnerabilities** that must be fixed before SDK usage in production environments.
