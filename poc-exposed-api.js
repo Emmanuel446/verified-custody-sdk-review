@@ -2,7 +2,7 @@
 
 // In a custody SDK, only hardened, high-level interfaces should be publicly accessible. Exposing internal UI flows or cryptographic primitives increases attack surface and enables misuse outside intended security boundaries.
 
-// Import the Verified Custody SDK as a third-party consumer would
+
 const custody = require("@verified-network/verified-custody");
 
 
