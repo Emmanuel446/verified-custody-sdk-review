@@ -51,6 +51,5 @@ Public exports include:
 
 ## 📂 Notes
 
-- PoC experiments are included in `poc.js`.  
-- `node_modules` is ignored in this repo to keep the submission lightweight.  
-- This review is intended for responsible disclosure and educational purposes.
+- PoC experiments are included in `poc-exposed-api.js`.  
+- `node_modules` is ignored in this repo to keep the submission lightweight.
