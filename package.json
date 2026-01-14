@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@verified-network/verified-custody": "^0.5.0"
+  }
+}
