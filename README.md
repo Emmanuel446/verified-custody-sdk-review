@@ -1,48 +1,56 @@
-🛡️ Security Audit Report: @verified-network/verified-custody
-🚨 MAIN ISSUE 1 — Custody SDK exposes internal security‑critical components
-The @verified-network/verified-custody package publicly exports internal UI pages, vault context, and security flows that should never be part of a custody SDK’s public API.
+# Verified Custody SDK Security Review
 
-🔍 Proof (Observed Vulnerability)
-The SDK exposes the following internal components:
+This repository demonstrates a Proof of Concept (PoC) highlighting security issues found in the `@verified-network/verified-custody` package.  
 
-Authentication Pages: PIN & OTP pages (CreatePinPage, EnterPinPage, OTPPage)
+---
 
-Onboarding: Onboarding flows (FTUPage)
+## 🛑 Main Issue 1 — Custody SDK exposes internal security‑critical components
 
-State Management: VaultContextProvider
+The `@verified-network/verified-custody` package **publicly exports internal UI pages, vault context, and security flows** that should **never** be part of a custody SDK’s public API.
 
-⚠️ Why this is bad
-Trust Boundaries: Breaks trust boundaries between the SDK consumer and wallet internals.
+### 🔍 Proof (Observed)
 
-Logic Misuse: Allows unintended mounting or reuse of security flows.
+The SDK exposes:
 
-Attack Surface: Expands the attack surface around PIN, OTP, and vault state handling.
+- PIN & OTP pages: `CreatePinPage`, `EnterPinPage`, `OTPPage`
+- Onboarding flows: `FTUPage`
+- `VaultContextProvider`
 
-Severity:
+### ⚠️ Why this is bad
 
-This is a fundamental security design flaw.
+- Breaks trust boundaries between SDK consumer and wallet internals  
+- Allows unintended mounting or reuse of security flows  
+- Expands attack surface around PIN, OTP, and vault state handling
 
-🚨 MAIN ISSUE 2 — Unrestricted access to cryptographic primitives
-The SDK exposes low‑level cryptographic helpers directly, without enforcing custody flow, authorization, or environment constraints.
+**Severity:** High — This is a **security design flaw**.
 
-🔍 Proof (Observed Vulnerability)
+---
+
+## 🛑 Main Issue 2 — Unrestricted access to cryptographic primitives
+
+The SDK exposes **low-level cryptographic helpers** directly, without enforcing custody flow, authorization, or environment constraints.
+
+### 🔍 Proof
+
 Public exports include:
 
-encryptString, decryptString
+- `encryptString`, `decryptString`  
+- `encryptWithPasskey`, `decryptWithPasskey`  
+- `hashTheString`, `hashTheBuffer`  
+- `publicKeyCredentialRequestOptions`
 
-encryptWithPasskey, decryptWithPasskey
+### ⚠️ Why this is bad
 
-hashTheString, hashTheBuffer
+- Any app can misuse encryption/decryption helpers  
+- Cryptographic operations are callable outside intended wallet lifecycle  
+- Violates principle of least privilege for custody systems
 
-publicKeyCredentialRequestOptions
+**Severity:** High — Directly affects key handling assumptions.
 
-⚠️ Why this is bad
-Misuse: Any app can misuse encryption/decryption helpers.
+---
 
-Lifecycle Violations: Cryptographic operations are callable outside the intended wallet lifecycle.
+## 📂 Notes
 
-Least Privilege: Violates the principle of least privilege for custody systems.
-
-Severity:
-
-This directly affects key handling assumptions.
+- PoC experiments are included in `poc.js`.  
+- `node_modules` is ignored in this repo to keep the submission lightweight.  
+- This review is intended for responsible disclosure and educational purposes.
