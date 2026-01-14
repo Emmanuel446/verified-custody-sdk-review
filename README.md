@@ -38,7 +38,7 @@ npm install
 
 # 3. Run the Proof of Concept
 node poc-exposed-api.js
-
+```
 ---
 
 ## 📂 Notes
