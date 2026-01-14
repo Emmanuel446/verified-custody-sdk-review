@@ -1,4 +1,4 @@
-MAIN ISSUE #1 — Custody SDK exposes internal security‑critical components
+#MAIN ISSUE 1 — Custody SDK exposes internal security‑critical components
 
 The @verified-network/verified-custody package publicly exports internal UI pages, vault context, and security flows that should never be part of a custody SDK’s public API.
 
@@ -22,7 +22,7 @@ Expands attack surface around PIN, OTP, and vault state handling
 Severity: High
 This is a security design flaw.
 
-MAIN ISSUE #2 — Unrestricted access to cryptographic primitives
+#MAIN ISSUE 2 — Unrestricted access to cryptographic primitives
 
 The SDK exposes low‑level cryptographic helpers directly, without enforcing custody flow, authorization, or environment constraints.
 
