@@ -1,32 +1,31 @@
-#MAIN ISSUE 1 — Custody SDK exposes internal security‑critical components
-
+🛡️ Security Audit Report: @verified-network/verified-custody
+🚨 MAIN ISSUE 1 — Custody SDK exposes internal security‑critical components
 The @verified-network/verified-custody package publicly exports internal UI pages, vault context, and security flows that should never be part of a custody SDK’s public API.
 
-Proof (what i actually observed):
-The SDK exposes:
+🔍 Proof (Observed Vulnerability)
+The SDK exposes the following internal components:
 
-PIN & OTP pages (CreatePinPage, EnterPinPage, OTPPage)
+Authentication Pages: PIN & OTP pages (CreatePinPage, EnterPinPage, OTPPage)
 
-Onboarding flows (FTUPage)
+Onboarding: Onboarding flows (FTUPage)
 
-VaultContextProvider
+State Management: VaultContextProvider
 
-Why this is bad:
+⚠️ Why this is bad
+Trust Boundaries: Breaks trust boundaries between the SDK consumer and wallet internals.
 
-Breaks trust boundaries between SDK consumer and wallet internals
+Logic Misuse: Allows unintended mounting or reuse of security flows.
 
-Allows unintended mounting or reuse of security flows
+Attack Surface: Expands the attack surface around PIN, OTP, and vault state handling.
 
-Expands attack surface around PIN, OTP, and vault state handling
+Severity:
 
-Severity: High
-This is a security design flaw.
+This is a fundamental security design flaw.
 
-#MAIN ISSUE 2 — Unrestricted access to cryptographic primitives
-
+🚨 MAIN ISSUE 2 — Unrestricted access to cryptographic primitives
 The SDK exposes low‑level cryptographic helpers directly, without enforcing custody flow, authorization, or environment constraints.
 
-Proof:
+🔍 Proof (Observed Vulnerability)
 Public exports include:
 
 encryptString, decryptString
@@ -37,13 +36,13 @@ hashTheString, hashTheBuffer
 
 publicKeyCredentialRequestOptions
 
-Why this is bad:
+⚠️ Why this is bad
+Misuse: Any app can misuse encryption/decryption helpers.
 
-Any app can misuse encryption/decryption helpers
+Lifecycle Violations: Cryptographic operations are callable outside the intended wallet lifecycle.
 
-Cryptographic operations are callable outside intended wallet lifecycle
+Least Privilege: Violates the principle of least privilege for custody systems.
 
-Violates principle of least privilege for custody systems
+Severity:
 
-Severity: High
 This directly affects key handling assumptions.
