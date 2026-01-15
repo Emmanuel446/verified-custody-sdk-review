@@ -1,55 +1,111 @@
+# 🚨 Verified Wallet Chrome Extension — Trust Boundary Bypass via Verified Custody SDK
+
 ## 🎯 Target Asset & Scope
 
-While reviewing the **Verified Wallet Chrome Extension** and analyzing its bundled code and behavior
-for potential vulnerabilities, it became clear that the extension relies heavily
-on the `@verified-network/verified-custody` SDK for core custody flows, vault state management,
-and cryptographic operations.
+This security research **originated from a review of the Verified Wallet Chrome Extension**.
 
-Because the SDK defines security-critical wallet behavior, any **publicly exposed SDK API**
-directly expands the wallet’s effective attack surface.
+While inspecting the extension’s bundled code, runtime behavior, and dependency structure
+for potential vulnerabilities, it became evident that the extension delegates nearly all
+security‑critical wallet functionality to the `@verified-network/verified-custody` SDK.
 
----
+These responsibilities include:
 
-## 🛑 Main Issue — SDK exposes internal components and cryptographic primitives
+- Custody lifecycle enforcement
+- Vault state management
+- Authentication and onboarding flows
+- Cryptographic operations
 
-The `@verified-network/verified-custody` package publicly exposes **internal wallet UI flows**
-and **low-level cryptographic helpers** that should never be part of a custody SDK’s public API.
+Because the extension relies entirely on the SDK for these guarantees,
+**any weakness in the SDK directly affects the security posture of the wallet extension**.
 
-This allows any consuming application to access sensitive wallet logic **outside the intended
-custody lifecycle**, creating a serious trust-boundary violation.
-
-### 🔍 Proof (Observed)
-
-From inspecting the SDK exports and running the PoC, the following are publicly available:
-
-- **Internal UI flows**:  
-  `CreatePinPage`, `EnterPinPage`, `OTPPage`, `FTUPage`
-- **Vault context**:  
-  `VaultContextProvider`
-- **Cryptographic helpers**:  
-  `encryptString`, `decryptString`,  
-  `encryptWithPasskey`, `decryptWithPasskey`,  
-  `hashTheString`, `hashTheBuffer`,  
-  `publicKeyCredentialRequestOptions`
+This led to a focused analysis of the SDK as an extension‑level attack surface.
 
 ---
 
-## ⚠️ Security Impact
+## 🔍 Discovery — Extension to SDK Trust Assumption
 
-Because these APIs are exposed:
+While reviewing the extension, the following observations were made:
 
-- Trust boundaries between the SDK consumer and wallet internals are broken  
-- PIN, OTP, and onboarding flows can be mounted or reused outside the extension  
-- Cryptographic operations can be invoked without custody flow enforcement  
-- Vault state and key-handling assumptions are weakened  
+- Internal wallet UI flows are imported directly from the SDK
+- Platform trust is determined dynamically through SDK configuration
+- Cryptographic operations are not implemented inside the extension itself
 
-Even if the extension UI enforces correct user behavior, the SDK exposure allows
-security-critical wallet logic to be accessed **outside the extension environment**,
-creating a supply-chain level risk.
+This creates a strong but undocumented trust assumption:
+> The SDK is responsible for enforcing environment restrictions and custody integrity.
 
-**Severity:** 🚨 High (CVSS ~8.x)  
-**Impact:** Major custody-flow bypass potential, cryptographic misuse, and weakened
-self-custody guarantees.
+Testing this assumption revealed that it does **not** hold.
+
+---
+
+## 🛑 Main Issue — SDK exposes internal wallet components and cryptographic primitives
+
+The `@verified-network/verified-custody` SDK publicly exposes **internal wallet UI flows**
+and **low‑level cryptographic helpers** that are assumed to be extension‑only,
+but are in fact accessible in any Node.js or web environment.
+
+This represents a **trust‑boundary violation** between the wallet extension
+and SDK consumers.
+
+Because the SDK does not enforce execution context, sensitive wallet logic can be
+mounted or invoked **outside the intended custody lifecycle**.
+
+---
+
+## 🔍 Proof — Publicly Exposed Sensitive APIs
+
+Inspection of the SDK exports and runtime behavior confirms that the following
+security‑critical internals are publicly available:
+
+### 🧩 Internal Wallet UI Flows
+- `CreatePinPage`
+- `EnterPinPage`
+- `OTPPage`
+- `FTUPage`
+
+### 🏦 Custody / Vault State
+- `VaultContextProvider`
+
+### 🔐 Cryptographic Helpers
+- `encryptString`, `decryptString`
+- `encryptWithPasskey`, `decryptWithPasskey`
+- `hashTheString`, `hashTheBuffer`
+- `publicKeyCredentialRequestOptions`
+
+These APIs execute without enforced custody authorization
+when used outside the extension environment.
+
+---
+
+## 💥 Security Impact
+
+Because these components are exposed:
+
+- Wallet authentication flows can be rendered outside the extension
+- Platform trust can be spoofed by SDK consumers
+- Cryptographic helpers are reachable without custody initialization
+- Unauthorized invocation leads to crashes, creating denial‑of‑service vectors
+- Wallet security guarantees become environment‑dependent instead of enforced
+
+Even if the extension UI enforces correct user behavior,
+the SDK exposure allows security‑critical logic to be accessed
+**outside the extension**, creating a supply‑chain level risk.
+
+---
+
+## 📊 Severity Assessment
+
+**Severity:** 🚨 High  
+**Estimated CVSS:** 7.8 – 8.4
+
+**Impact Includes:**
+- Major custody‑flow bypass potential
+- Cryptographic misuse and denial‑of‑service vectors
+- Broken trust boundary between extension and SDK
+- Systemic risk affecting all SDK consumers
+
+> While direct private key extraction was not demonstrated,
+> the exposed attack surface significantly lowers the barrier
+> for future exploitation.
 
 ---
 
@@ -65,5 +121,5 @@ cd POC
 # Install dependencies
 npm install
 
-# Run the Proof of Concept in Your Code Terminal
+# Run the proof of concept
 node poc-exposed-api.js
