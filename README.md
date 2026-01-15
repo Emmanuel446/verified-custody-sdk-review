@@ -1,59 +1,64 @@
-# 🚨 Verified Wallet Chrome Extension — Trust Boundary Bypass via Verified Custody SDK
+# 🚨 Verified Wallet — Trust Boundary Bypass via Verified Custody SDK
+
+## 📖 Simple Overview (What This Is About)
+
+This security research started while I was **reviewing the Verified Wallet Chrome Extension**
+to understand how it protects users’ wallets, keys, and authentication flows.
+
+While going through the extension, I noticed something important:
+
+👉 **Almost all security‑critical logic is not inside the extension itself.**  
+Instead, the extension depends heavily on the  
+`@verified-network/verified-custody` SDK.
+
+That means:
+- If the SDK is unsafe → the wallet is unsafe
+- If the SDK exposes too much → the extension inherits that risk
+
+So I stopped looking at the UI and started testing the SDK directly.
+
+---
 
 ## 🎯 Target Asset & Scope
 
-This security research **originated from reviewing the Verified Wallet Chrome Extension**.
+**Primary target:** Verified Wallet Chrome Extension  
+**Attack surface analyzed:** `@verified-network/verified-custody` SDK
 
-While inspecting the extension’s bundled code, runtime behavior, and dependency structure
-for potential vulnerabilities, it became clear that the extension delegates nearly all
-security‑critical wallet functionality to the `@verified-network/verified-custody` SDK.
-
-These responsibilities include:
-
+The SDK is responsible for:
 - Custody lifecycle enforcement
 - Vault state management
-- Authentication and onboarding flows
-- Cryptographic and passkey-related operations
+- PIN / OTP / onboarding flows
+- Cryptographic and authentication helpers
 
-Because the extension relies on the SDK for these guarantees,
-**any weakness in the SDK directly impacts the security posture of the wallet extension**.
-
-This led to a focused analysis of the SDK as an extension‑level attack surface.
+Because of this, **any public SDK API becomes part of the wallet’s security boundary**.
 
 ---
 
-## 🔍 Discovery — Broken Extension ↔ SDK Trust Assumption
+## 🔍 What I Discovered (The Core Problem)
 
-During extension analysis, the following observations were made:
+The SDK **publicly exposes internal wallet components** that were clearly designed
+to be used **only inside the Verified Wallet extension**.
 
-- Internal wallet UI flows are imported directly from the SDK
-- Platform trust is determined dynamically via SDK configuration
-- Cryptographic and authentication helpers are not implemented inside the extension itself
+But there is **no hard enforcement** of where or how these components can run.
 
-This creates a critical trust assumption:
-
-> The SDK is responsible for enforcing execution environment restrictions and custody integrity.
-
-Testing this assumption showed that it **does not hold**.
+In simple terms:
+> The SDK *trusts* the caller — even when it shouldn’t.
 
 ---
 
-## 🛑 Main Issue — SDK exposes internal wallet components and cryptographic primitives
+## 🛑 Main Issue — Trust Boundary Bypass in the SDK
 
-The `@verified-network/verified-custody` SDK publicly exposes **internal wallet UI flows**
-and **low‑level cryptographic / authentication helpers** that are assumed to be
-extension‑only, but are in fact accessible in arbitrary Node.js or web environments.
+The `@verified-network/verified-custody` SDK exposes **internal wallet UI flows**
+and **authentication / cryptographic helpers** to *any* JavaScript environment.
 
-Because the SDK does **not enforce execution context**, sensitive wallet logic can be
-mounted or invoked **outside the intended custody lifecycle**, resulting in a
-trust‑boundary violation between the extension and SDK consumers.
+This allows sensitive wallet logic to be accessed **outside the extension**,
+breaking the trust boundary between:
+- the wallet extension (trusted)
+- external apps or scripts (untrusted)
 
 ---
 
-## 🔍 Proof — Publicly Exposed Security‑Critical APIs
-
-Inspection of SDK exports and runtime behavior confirms that the following
-internals are publicly available:
+## 🔓 Publicly Exposed Sensitive APIs
 
 ### 🧩 Internal Wallet UI Flows
 - `CreatePinPage`
@@ -61,8 +66,12 @@ internals are publicly available:
 - `OTPPage`
 - `FTUPage`
 
-### 🏦 Custody / Vault State
+These are real wallet authentication screens.
+
+### 🏦 Vault / Custody Context
 - `VaultContextProvider`
+
+This controls wallet state and custody flow.
 
 ### 🔐 Cryptographic & Authentication Helpers
 - `encryptString`, `decryptString`
@@ -70,25 +79,48 @@ internals are publicly available:
 - `hashTheString`, `hashTheBuffer`
 - `publicKeyCredentialRequestOptions`
 
-These APIs are callable **outside the extension environment**
-without enforced custody authorization or platform validation.
+These helpers should **never** be callable without strict custody enforcement.
 
 ---
 
-## 💥 Security Impact
+## 💥 What This Allows (Why It’s Dangerous)
 
-As demonstrated in the PoC:
+Because these APIs are exposed:
 
-- Internal wallet authentication flows can be rendered outside the extension
-- Platform trust can be spoofed via SDK initialization
-- Passkey / authentication request material can be generated externally
-- Cryptographic helpers are reachable without custody state enforcement
-- Unauthorized invocation leads to runtime crashes, creating denial‑of‑service vectors
+- Internal wallet screens can be rendered **outside the extension**
+- Platform trust can be **spoofed** by an attacker
+- Authentication material can be generated in untrusted environments
+- Cryptographic helpers are callable without custody authorization
+- SDK misuse can cause crashes → denial‑of‑service vectors
+- Wallet security becomes **assumption‑based**, not enforced
 
-Even if the extension UI enforces correct user behavior,
-the SDK exposure allows security‑critical wallet logic to be accessed
-**outside the extension**, introducing a **supply‑chain and trust‑boundary risk**
-affecting all SDK consumers.
+Even if the extension UI behaves correctly,
+the SDK silently widens the attack surface.
+
+---
+
+## 🧪 Proof of Concept 1 — Internal Wallet UI Outside the Extension
+
+This PoC shows that internal wallet UI (PIN creation) can be rendered
+in a plain Node.js environment by spoofing platform checks.
+
+**Result:**  
+✅ Internal wallet UI renders outside the Verified Wallet extension.
+
+This confirms a **trust‑boundary bypass**.
+
+---
+
+## 🧪 Proof of Concept 2 — Sensitive Authentication Material Leakage
+
+This PoC shows that authentication helpers (passkey request options)
+can be generated **outside the extension**, without custody enforcement.
+
+**Observed result:**
+- `publicKeyCredentialRequestOptions` returns a valid challenge object
+- No extension context is required
+
+This demonstrates **leakage of sensitive authentication primitives**.
 
 ---
 
@@ -97,21 +129,22 @@ affecting all SDK consumers.
 **Severity:** 🚨 High  
 **Estimated CVSS:** 7.8 – 8.4
 
-**Impact Includes:**
-- Major custody‑flow and environment trust bypass
-- Unauthorized generation of authentication primitives
-- Cryptographic misuse and denial‑of‑service vectors
-- Systemic risk across all applications using the SDK
+### Why this is High (not Critical):
+- No direct private key extraction shown
+- No unauthorized transaction signing demonstrated
 
-> While direct private key extraction was not demonstrated,
-> the exposed attack surface significantly weakens custody guarantees
-> and lowers the barrier for future exploitation.
+### Why this is NOT Medium:
+- Major trust‑boundary bypass
+- Unauthorized access to authentication primitives
+- SDK‑level issue affecting the wallet extension
+- Real, reproducible misuse with working code
+
+This fits squarely under:
+> **High Severity — major access control bypass & sensitive data exposure**
 
 ---
 
-## ▶️ Reproduction Steps
-
-From a clean environment:
+## ▶️ How to Reproduce (Exactly What to Run)
 
 ```bash
 # Clone the repository
@@ -121,5 +154,8 @@ cd POC
 # Install dependencies
 npm install
 
-# Run the proof of concept
+# Run trust-boundary & UI exploit PoC
 node poc-exposed-api.js
+
+# Run sensitive authentication leakage PoC
+node poc-sensitive-leak.js
