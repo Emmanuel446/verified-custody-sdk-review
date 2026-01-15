@@ -129,15 +129,9 @@ This demonstrates **leakage of sensitive authentication primitives**.
 **Severity:** 🚨 High  
 **Estimated CVSS:** 7.8 – 8.4
 
-### Why this is High (not Critical):
+### Why this is High :
 - No direct private key extraction shown
 - No unauthorized transaction signing demonstrated
-
-### Why this is NOT Medium:
-- Major trust‑boundary bypass
-- Unauthorized access to authentication primitives
-- SDK‑level issue affecting the wallet extension
-- Real, reproducible misuse with working code
 
 This fits squarely under:
 > **High Severity — major access control bypass & sensitive data exposure**
